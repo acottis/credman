@@ -4,26 +4,23 @@ mod bindings {
 
 use bindings::{
     Windows::Win32::Security::*,
-    Windows::Win32::System::SystemServices::{PSTR},
+    Windows::Win32::System::SystemServices::{PSTR, CHAR},
     Windows::Win32::System::WindowsProgramming::FILETIME,
     Windows::Win32::System::Diagnostics::Debug::GetLastError,
+    Windows::Win32::NetworkManagement::Rras::{ RasGetCredentialsA, RasSetCredentialsA, RASCREDENTIALSA, RASCM_Password, RASCM_UserName, RASCM_Domain},
 };
 
-use std::{borrow::BorrowMut};
+use std::{borrow::BorrowMut, convert::{TryFrom, TryInto}};
 
 // fn main() {
 //     //store("Adam", "test", "Azphel:CredMan").unwrap();
-//     //windows_rs()
-//     rust_read().unwrap();
+//     //rust_read("*Session".to_string());
+//     get_ras_cred()
 // }
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
 struct c_str(*mut u8);
-#[allow(non_camel_case_types)]
-trait From<c_str> {
-    fn from(addr: c_str) -> String;
-}
 
 impl std::convert::From<c_str> for std::string::String{
     fn from(addr: c_str) -> Self {
@@ -35,14 +32,14 @@ impl std::convert::From<c_str> for std::string::String{
         }
         std::str::from_utf8(&buf[0..i]).unwrap().to_string()
     }
-} 
+}
 
 #[no_mangle]
 extern "C" fn store(user: c_str, pass: c_str, service: c_str) -> i32{
 
-    let user: String = user.into();
-    let pass: String = pass.into();
-    let service: String = service.into();
+    let user= String::from(user);
+    let pass = String::from(pass);
+    let service= String::from(service);
 
     rust_store(user, pass, service).expect("Could not store credentials");
     println!("Credentials wrote Sucessfully Stored");
@@ -67,7 +64,7 @@ fn rust_read<'a>(target: String) -> Result<&'a str, &'a str> {
     let mut credential = &CREDENTIALA::default();
 
     let result = unsafe{
-        CredReadA(PSTR(target), 0x1, 0, core::mem::transmute(&mut credential))
+        CredReadA(PSTR(target), 0x2, 0, core::mem::transmute(&mut credential))
     };
     if result.0 == 0 { println!("{:x?}", unsafe { GetLastError() } ); return Err("Credentials could not be read") } 
 
@@ -82,9 +79,9 @@ fn rust_store<'a>(user: String, pass: String, service: String) -> core::result::
 
     let len = pass.len()+1;
 
-    let username = (user+"\0").to_string().as_mut_ptr();
-    let service = (service+"\0").to_string().as_mut_ptr();
-    let password = (pass+"\0").to_string().as_mut_ptr();
+    let username = (user+"\0").as_mut_ptr();
+    let service = (service+"\0").as_mut_ptr();
+    let password = (pass+"\0").as_mut_ptr();
 
     let mut credential= CREDENTIALA {
         Flags: CRED_FLAGS(0),
