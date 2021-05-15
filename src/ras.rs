@@ -13,9 +13,9 @@ fn get_ras_cred() {
         szUserName: user,
     };
 
-    let pbk = r"C:\Users\adamc\AppData\Roaming\Microsoft\Network\Connections\Pbk\rasphone.pbk";
+    let pbk = r"";
     //let pbk = "%userprofile%\\AppData\\Roaming\\Microsoft\\Network\\Connections\\PBK\\rasphone.pbk\0".to_owned().as_mut_ptr();
-    let entry = "remote.mst-uk.com\0".to_owned().as_mut_ptr();
+    let entry = "".to_owned().as_mut_ptr();
 
     println!("{:?}", pbk);
 
