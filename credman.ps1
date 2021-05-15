@@ -13,5 +13,5 @@ public static extern uint add(uint a, uint b);
 
 $rust = Add-Type -MemberDefinition $source -Name 'CredMan' -Namespace 'Azphel' -PassThru
 
-$rust::store("Adam", "Test", "Azphel:CredMan")
+$rust::store("Adam", "Testing", "Azphel:CredMan")
 $rust::read("Azphel:CredMan")

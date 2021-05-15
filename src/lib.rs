@@ -4,7 +4,7 @@ mod bindings {
 
 use bindings::{
     Windows::Win32::Security::*,
-    Windows::Win32::System::SystemServices::{PSTR, PWSTR},
+    Windows::Win32::System::SystemServices::{PSTR},
     Windows::Win32::System::WindowsProgramming::FILETIME,
     Windows::Win32::System::Diagnostics::Debug::GetLastError,
 };
@@ -17,12 +17,32 @@ use std::{borrow::BorrowMut};
 //     rust_read().unwrap();
 // }
 
-#[no_mangle]
-extern "C" fn store(user: *mut u8, pass: *mut u8, service: *mut u8) -> i32{
+#[allow(non_camel_case_types)]
+#[repr(C)]
+struct c_str(*mut u8);
+#[allow(non_camel_case_types)]
+trait From<c_str> {
+    fn from(addr: c_str) -> String;
+}
 
-    let user = read_raw_string(user).expect(msg);
-    let pass = read_raw_string(pass).unwrap();
-    let service = read_raw_string(service).unwrap();
+impl std::convert::From<c_str> for std::string::String{
+    fn from(addr: c_str) -> Self {
+        let buf: &mut [u8;255] = &mut ['\0' as u8; 255];
+        let mut i: usize = 0;
+        while (unsafe { *addr.0.offset(i as isize) } != '\0' as u8) && (buf.len() > i) {
+            buf[i] = unsafe { *addr.0.offset(i as isize) };
+            i += 1;
+        }
+        std::str::from_utf8(&buf[0..i]).unwrap().to_string()
+    }
+} 
+
+#[no_mangle]
+extern "C" fn store(user: c_str, pass: c_str, service: c_str) -> i32{
+
+    let user: String = user.into();
+    let pass: String = pass.into();
+    let service: String = service.into();
 
     rust_store(user, pass, service).expect("Could not store credentials");
     println!("Credentials wrote Sucessfully Stored");
@@ -30,9 +50,9 @@ extern "C" fn store(user: *mut u8, pass: *mut u8, service: *mut u8) -> i32{
 }
 
 #[no_mangle]
-extern "C" fn read(service: *mut u8){
+extern "C" fn read(service: c_str){
 
-    let service = read_raw_string(service).unwrap();
+    let service: String = service.into();
 
     match rust_read(service) {
         Ok(msg) => println!("{}", msg),
@@ -51,22 +71,11 @@ fn rust_read<'a>(target: String) -> Result<&'a str, &'a str> {
     };
     if result.0 == 0 { println!("{:x?}", unsafe { GetLastError() } ); return Err("Credentials could not be read") } 
 
-    let pass = read_raw_string(credential.CredentialBlob).expect("Error getting password");
-    let user = read_raw_string(credential.UserName.0).expect("Error getting username");
+    let pass: String = c_str(credential.CredentialBlob).into();
+    let user: String = c_str(credential.UserName.0).into();
     println!("Username: {}, Password: {}", user,pass);
 
     Ok("Credentials read sucessfully")
-}
-
-
-fn read_raw_string(addr: *mut u8) -> Result<String, Box<dyn std::error::Error>>{
-    let buf: &mut [u8;255] = &mut ['\0' as u8; 255];
-    let mut i: usize = 0;
-    while (unsafe { *addr.offset(i as isize) } != '\0' as u8) && (buf.len() > i) {
-        buf[i] = unsafe { *addr.offset(i as isize) };
-        i += 1;
-    }
-    Ok(std::str::from_utf8(&buf[0..i])?.to_string())
 }
 
 fn rust_store<'a>(user: String, pass: String, service: String) -> core::result::Result<(), &'a str> {
